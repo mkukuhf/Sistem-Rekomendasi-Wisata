@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from PIL import Image
 import warnings
+import re
 warnings.filterwarnings('ignore')
 
 # Configure page
@@ -51,8 +52,120 @@ st.markdown("""
         font-weight: bold;
         color: #1976d2;
     }
+    /* Modal styles */
+    .modal-backdrop { 
+        position: fixed; 
+        inset: 0; 
+        background: rgba(0,0,0,0.45); 
+        z-index: 1000; 
+    }
+    .modal-container { 
+        position: fixed; 
+        top: 50%; 
+        left: 50%; 
+        transform: translate(-50%, -50%); 
+        background: #ffffff; 
+        padding: 1.25rem 1.25rem 0.75rem; 
+        border-radius: 12px; 
+        width: min(720px, 92vw); 
+        z-index: 1001; 
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25); 
+        border: 1px solid #e6e8ec; 
+    }
+    .modal-container h2 { 
+        margin: 0 0 0.75rem 0; 
+        font-size: 1.25rem; 
+        color: #1f2937; 
+    }
+    .modal-container p, .modal-container li { 
+        color: #374151; 
+        line-height: 1.6; 
+        font-size: 0.95rem; 
+    }
+    .modal-container ul { 
+        margin: 0.25rem 0 0.75rem 1.25rem; 
+    }
+    .modal-tip { 
+        background: #f3f4f6; 
+        border-left: 4px solid #667eea; 
+        padding: 0.75rem; 
+        border-radius: 6px; 
+        margin-top: 0.5rem; 
+        color: #111827; 
+    }
+    :root { --sidebar-gap: 140px; }
+    /* Shift modal to leave a gap from sidebar */
+    .modal-container { left: calc(50% + var(--sidebar-gap)); }
+    /* Close (exit) button inside modal */
+    .modal-close { 
+        position: absolute; 
+        top: 10px; 
+        right: 12px; 
+        text-decoration: none; 
+        font-size: 18px; 
+        color: #6b7280; 
+        padding: 2px 6px; 
+        border-radius: 6px; 
+        border: 1px solid transparent;
+    }
+    .modal-close:hover { 
+        color: #111827; 
+        background: #f3f4f6; 
+        border-color: #e5e7eb; 
+    }
+    @media (max-width: 900px) {
+        :root { --sidebar-gap: 0px; }
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# Help modal controls
+
+def open_help():
+    st.session_state["show_help"] = True
+    st.session_state["has_seen_help"] = True
+
+
+def close_help():
+    st.session_state["show_help"] = False
+
+
+def render_help_modal():
+    if st.session_state.get("show_help", False):
+        st.markdown(
+            """
+            <div class="modal-backdrop"></div>
+            <div class="modal-container">
+                <h2>❓ Panduan Penggunaan</h2>
+                <p>Gunakan sidemenu di kiri untuk memasukkan preferensi wisata Anda. Ikuti langkah berikut:</p>
+                <ul>
+                    <li><b>Pilih Kategori Wisata</b> sesuai minat utama Anda.</li>
+                    <li><b>Pilih Jenis Wisata</b> yang diinginkan.</li>
+                    <li><b>Isi Aktivitas</b> dan <b>Fasilitas</b> (opsional) dengan kata kunci, misalnya: hiking, snorkeling, toilet.</li>
+                    <li><b>Atur Jumlah Rekomendasi</b> yang ingin ditampilkan.</li>
+                    <li>Klik <b>🔍 Cari Rekomendasi</b> untuk melihat hasil.</li>
+                </ul>
+                <div class="modal-tip">
+                    Tip: gunakan kata kunci yang umum dan singkat untuk hasil yang lebih relevan.
+                </div>
+                <p style="margin-top:0.75rem; color:#6b7280;">Tutup popup ini untuk melanjutkan. Anda selalu bisa membuka panduan lagi dari tombol di sidemenu.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Keluar", key="close_help_btn"):
+            close_help()
+            st.rerun()
+
+def _normalize_preference_text(text: str) -> str:
+    if not text:
+        return ""
+    # Split by comma or semicolon, also allow trimming extra spaces
+    parts = [p.strip() for p in re.split(r",|;", text) if p.strip()]
+    # If user used spaces without commas, keep as one phrase to avoid over-splitting semantics
+    # Enforce maximum 3 items
+    limited = parts[:3]
+    return ", ".join(limited)
 
 @st.cache_data
 def load_data():
@@ -173,6 +286,12 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    # Initialize help modal state
+    if "show_help" not in st.session_state:
+        st.session_state["show_help"] = False
+    if "has_seen_help" not in st.session_state:
+        st.session_state["has_seen_help"] = False
+
     # Load data
     df, vectorizer, normalized_matrix, dest_features = load_data()
     
@@ -186,11 +305,25 @@ def main():
     # Sidebar for user input
     st.sidebar.header("🎯 Preferensi Wisata Anda")
     st.sidebar.write("Masukkan preferensi Anda untuk mendapatkan rekomendasi terbaik:")
+
+    # Help button in sidebar
+    if st.sidebar.button("❓ Panduan Penggunaan"):
+        if st.session_state.get("show_help", False):
+            close_help()
+        else:
+            open_help()
+        st.rerun()
     
+    # Ensure sidebar input keys exist for persistence
+    if "aktivitas_input" not in st.session_state:
+        st.session_state["aktivitas_input"] = ""
+    if "fasilitas_input" not in st.session_state:
+        st.session_state["fasilitas_input"] = ""
+
     # Get unique values for dropdowns
     categories = df['kategori_utama'].dropna().unique().tolist()
     jenis_wisata = df['jenis_wisata'].dropna().unique().tolist()
-    
+
     # User input form
     with st.sidebar.form("preference_form"):
         st.subheader("Pilih Preferensi:")
@@ -209,29 +342,45 @@ def main():
         
         aktivitas = st.text_input(
             "Aktivitas yang Diinginkan:",
-            placeholder="Contoh: hiking, snorkeling, photography",
-            help="Masukkan aktivitas yang ingin Anda lakukan"
+            placeholder="Maks 3, pisahkan dengan koma. Contoh: hiking, snorkeling, photography",
+            help="Masukkan maksimal 3 aktivitas. Contoh daftar aktivitas dapat dilihat di halaman utama pada 'Contoh Data Destinasi'.",
+            key="aktivitas_input"
         )
         
         fasilitas = st.text_input(
             "Fasilitas yang Dibutuhkan:",
-            placeholder="Contoh: toilet, parkir, penginapan",
-            help="Masukkan fasilitas yang Anda perlukan"
+            placeholder="Maks 3, pisahkan dengan koma. Contoh: toilet, parkir, penginapan",
+            help="Masukkan maksimal 3 fasilitas. Contoh daftar fasilitas dapat dilihat di halaman utama pada 'Contoh Data Destinasi'.",
+            key="fasilitas_input"
         )
         
         top_k = st.slider("Jumlah Rekomendasi:", 1, 10, 5)
         
         submit_button = st.form_submit_button("🔍 Cari Rekomendasi")
+
+    # Informational prompt to open help before searching
+    if not st.session_state.get("has_seen_help", False):
+        st.sidebar.info("Klik tombol ❓ Panduan Penggunaan terlebih dahulu sebelum mencari rekomendasi.")
     
+    # Render help modal if needed
+    render_help_modal()
+
     # Main content area
-    if submit_button:
+    if submit_button and st.session_state.get("has_seen_help", False):
+        # Normalize aktivitas and fasilitas with max 3 items
+        aktivitas_norm = _normalize_preference_text(aktivitas)
+        fasilitas_norm = _normalize_preference_text(fasilitas)
+        
         # Create user preferences dictionary
         user_preferences = {
             'kategori': kategori,
             'jenis': jenis,
-            'aktivitas': aktivitas,
-            'fasilitas': fasilitas
+            'aktivitas': aktivitas_norm,
+            'fasilitas': fasilitas_norm
         }
+        
+        # Note: Cannot modify session_state after widget instantiation
+        # The form fields will retain their original values automatically
         
         # Show user preferences
         st.subheader("📋 Preferensi Anda:")
@@ -241,9 +390,9 @@ def main():
         with col2:
             st.info(f"**Jenis:** {jenis}")
         with col3:
-            st.info(f"**Aktivitas:** {aktivitas}")
+            st.info(f"**Aktivitas:** {aktivitas_norm if aktivitas_norm else '-'}")
         with col4:
-            st.info(f"**Fasilitas:** {fasilitas}")
+            st.info(f"**Fasilitas:** {fasilitas_norm if fasilitas_norm else '-'}")
         
         # Get recommendations
         with st.spinner("Sedang mencari rekomendasi terbaik untuk Anda..."):
@@ -298,6 +447,8 @@ def main():
             file_name=f"rekomendasi_wisata_top_{top_k}.csv",
             mime="text/csv"
         )
+    elif submit_button and not st.session_state.get("has_seen_help", False):
+        st.warning("Silakan buka panduan terlebih dahulu melalui tombol di sidebar.")
     
     else:
         # Show dataset overview when no search is performed
@@ -307,7 +458,7 @@ def main():
         with col1:
             st.metric("Total Destinasi", len(df))
         with col2:
-            st.metric("Total Kategori", df['kategori_utama'].nunique())
+            st.metric("Total Kategori", int(df['kategori_utama'].nunique()))
         with col3:
             avg_rating = df['rating'].mean()
             st.metric("Rata-rata Rating", f"{avg_rating:.1f}/5")
