@@ -1,8 +1,8 @@
-🌿 #Tourism Recommendation System (Content-Based Filtering)
+🌿 Tourism Recommendation System (Content-Based Filtering)
 
 This project is a machine learning-based recommendation system developed as part of a bachelor's thesis. The system provides personalized recommendations for natural tourist destinations in North Sulawesi based on user preferences and destination characteristics.
 
-🚀 ##Features
+🚀 Features
 
 Personalized recommendation based on destination features
 
@@ -12,7 +12,7 @@ Interactive web interface built with Streamlit
 
 Real-time recommendation results
 
-🧠 ##Methodology
+🧠 Methodology
 
 CRISP-DM framework for structured data mining process
 
@@ -22,7 +22,7 @@ TF-IDF vectorization
 
 Cosine Similarity for similarity scoring
 
-🛠 ##Tech Stack
+🛠 Tech Stack
 
 Python
 
@@ -34,17 +34,18 @@ Streamlit
 
 Google Colab
 
-📊 ##Dataset
+📊 Dataset
 
 100+ natural tourist destinations collected from Google Maps
 
 Feature-based destination characteristics
 
-🌐 ##Live Demo
+🌐 Live Demo
 
 https://sistem-rekomendasi-wisata-sulut.streamlit.app/
 
-📂 ##How to Run
+📂 How to Run
 pip install -r requirements.txt
 streamlit run app.py
+
 
